@@ -26,6 +26,9 @@ class Collector(object):
         self.url_list = url_list
         self.valid_urls = set([])
 
+        # records the date the views are collected
+        self.date = datetime.now()
+
         # each dictionary maps url to the information on each url
         self.info = {}
 
@@ -33,26 +36,26 @@ class Collector(object):
         # but what should I do with all the disabled channels?
         self.disabled = set([])
 
-    def get_info(self):
+    def get_views(self, url):
         """
         return a dictionary mapping each url to
         all the information collected on the url
         """
-        return self.info
+        if url in self.disabled:
+            return 0.0
+        return self.info[url]["views"]
 
-    def get_disabled(self):
+    def get_non_disabled(self):
         """
         get a list of all YouTube videos that disabled views
         """
-        return self.disabled
+        non_disabled = set()
+        for url in self.valid_urls:
+            if url not in self.disabled:
+                non_disabled.add(url)
+        return non_disabled
 
-    def get_valid(self):
-        """
-        return a list of all valid urls
-        """
-        return self.valid_urls
-
-    def collect(self):
+    def run(self):
         """
         collects views, likes, dislikes of a youtube video
         It can then save the results as a csv
@@ -64,11 +67,12 @@ class Collector(object):
             print(i)
             if i % 10 == 0 and i != 0:
                 print("visited  " + str(i) + " urls")
-            url = url_list[i]
+            url = self.url_list[i]
             # check if the url is a site on YouTube
             if url[:29] != "https://www.youtube.com/watch":
                 pass
             try:
+                # try to access the webpage as an xpath
                 page = requests.get(url)
                 youtube = html.fromstring(page.text)
                 self.info[url] = {}
@@ -109,9 +113,8 @@ class Collector(object):
 
     def save(self, file_name):
         """
-                save the file as a csv file
-                """
-
+        save the file as a csv file
+        """
         csv_file = open(file_name, 'w')
         writer = csv.writer(csv_file)
         row_titles = ["url", "title", "date", "views"]
@@ -126,14 +129,75 @@ class Collector(object):
 
         print("File saved")
 
+def stringtoint(stringdate):
+    """
+    split mm/dd/yyyy into year, month and day
+    """
+    first = stringdate.split("T")[0]
+    second = first.split("-")
+    year = int(second[0])
+    month = int(second[1])
+    day = int(second[2])
+    return year, month, day
 
+
+def num_days(year,month,day):
+    """
+    return the number of days between the date and 0 BC
+    """
+    # Todo: what about leap years?
+    monthdays = [0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334]
+    return year * 365 + monthdays[month-1] + day
 
 if __name__ == "__main__":
 
-    url = "https://www.youtube.com/watch?v=87yupacw8Jc&t=3592s"
-    url1 = "https://www.youtube.com/watch?v=1QCK_gFGi90"
-    url_list = [url,url1]
+    print("Hello World")
+    url_1 = "https://www.youtube.com/watch?v=87yupacw8Jc&t=3592s"
+    url_2 = "https://www.youtube.com/watch?v=1QCK_gFGi90"
+    url_list = [url_1, url_2]
     web_scraper = Collector(url_list)
-    web_scraper.collect()
-    print(web_scraper.get_info())
-    web_scraper.save("results.csv")
+    web_scraper.run()
+    print(web_scraper.get_views(url_1))
+    print(web_scraper.get_views(url_2))
+    # print(web_scraper.date.isocalendar())
+    # datetime.fromisoformat()
+    # web_scraper.save("results.csv")
+
+    # old_data = csv.reader(open("USvideos.csv"))
+    # num_url = 100
+    #
+    # url_list = ["https://www.youtube.com/watch?v=" + item[0] for item in old_data]
+    # if num_url < len(url_list):
+    #     url_list = url_list[:num_url]
+    # web_scraper = Collector(url_list)
+    # web_scraper.run()
+    # vid_dict = {}
+    # count = 0
+    #
+    # time = web_scraper.date.fromisoformat()
+    #
+    # for list in old_data:
+    #     if count != 0 and count < num_url:
+    #         new_views = web_scraper.get_views("https://www.youtube.com/watch?v=" + list[0])
+    #         if new_views != 0:
+    #             year, month, date = stringtoint(list[1:][4])
+    #             time_passed = num_days(year, month, date) - num_days(time[0], time[1], time[2])
+    #             views = float(list[1:][6])
+    #             likes = float(list[1:][7])
+    #             dislikes = float(list[1:][8])
+    #             comment_count = float(list[1:][9])
+    #             views_change = new_views - views
+    #
+    #             vid_dict[list[0]] = [time_passed, views, likes, dislikes, comment_count, new_views, views_change]
+    #     print count
+    #     count += 1
+    #
+    # csv_file = open('test_run.csv', 'w')
+    # writer = csv.writer(csv_file)
+    # writer.writerow(
+    #     ["video_id", "time_passed", "views", "likes", "dislikes", "comment_count", "new_views", "views_change"])
+    # for key, value in vid_dict.items():
+    #     value.insert(0, key)
+    #     writer.writerow(value)
+    #
+    # csv_file.close()
